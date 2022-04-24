@@ -1,0 +1,263 @@
+<head>
+  <style>
+    body {
+      height: 100vh;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    #game {
+      position: relative;
+    }
+
+    #canvas {
+      width: 600px;
+      height: 300px;
+      border: 0.5px solid black;
+      box-sizing: content-box;
+      position: relative;
+    }
+
+    .pixel {
+      position: absolute;
+      border: 0.5px solid black;
+      background-color: rgba(0, 0, 0, 0.05);
+      width: 10px;
+      height: 10px;
+    }
+
+    .snake {
+      background-color: green;
+    }
+
+    .food {
+      background-color: red;
+    }
+
+    .overlay {
+      position: absolute;
+      background-color: rgba(0, 0, 0, 0.5);
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      color: white;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .overlay h1 {
+      font-size: 2rem;
+    }
+
+    #score {
+      position: absolute;
+      top: -2rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div id="score"></div>
+    <div id="canvas"></div>
+  </div>
+  <script>
+    const ROWS = 30;
+    const COLS = 60;
+    const SIZE = 10;
+
+    let direction = "RIGHT";
+    let speed = 100;
+    let score = 0;
+
+    const canvas = document.getElementById("canvas");
+    const scoreBoard = document.getElementById("score");
+    let snake = [[COLS / 2, ROWS / 2]];
+    let food = undefined;
+
+    setInitialState();
+
+    function main() {
+      resetEventListeners();
+      initialiseCanvas();
+      updateFood();
+      subscribeToEvents();
+
+      const interval = setInterval(() => {
+        resetCanvas();
+        updateSnake();
+        eatFood();
+        if (!food) updateFood();
+        renderFrame();
+        checkIsGameOver(interval);
+      }, speed);
+    }
+
+    function setInitialState() {
+      initialiseCanvas();
+      const overlay = document.createElement("div");
+      overlay.classList.add("overlay");
+      overlay.innerHTML = `
+          <div>
+            <h1>Welcome to Snake</h1>
+            <p>Click to play</p>
+          </div>
+        `;
+      overlay.addEventListener("click", main);
+      canvas.appendChild(overlay);
+    }
+
+    function resetEventListeners() {
+      const overlay = document.getElementsByClassName("overlay");
+      if (overlay.length > 0) {
+        overlay[0].removeEventListener("click", main);
+      }
+    }
+
+    function checkIsGameOver(interval) {
+      const head = snake[snake.length - 1];
+      if (containsSnake(head[0], head[1], snake.slice(0, snake.length - 1))) {
+        clearInterval(interval);
+        const overlay = document.createElement("div");
+        overlay.classList.add("overlay");
+        overlay.innerHTML = `
+          <div>
+            <h1>Game Over</h1>
+            <p>Click to play again</p>
+          </div>
+        `;
+        overlay.addEventListener("click", main);
+        canvas.appendChild(overlay);
+      }
+    }
+
+    function renderFrame() {
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          const pixel = document.createElement("div");
+          pixel.classList.add("pixel");
+          pixel.style.top = `${row * SIZE}px`;
+          pixel.style.left = `${col * SIZE}px`;
+
+          if (containsSnake(col, row, snake)) {
+            pixel.classList.add("snake");
+          } else if (containsFood(col, row)) {
+            pixel.classList.add("food");
+          }
+
+          canvas.appendChild(pixel);
+        }
+      }
+    }
+
+    function eatFood() {
+      const head = snake[snake.length - 1];
+      if (containsFood(head[0], head[1])) {
+        growSnake();
+        speed = speed * 0.9;
+      }
+    }
+
+    function growSnake() {
+      const tail = snake[0];
+      if (direction === "RIGHT") {
+        const newPos = tail[0] - 1;
+        snake.unshift([newPos === -1 ? COLS - 1 : newPos, tail[1]]);
+      }
+      if (direction === "LEFT") {
+        const newPos = tail[0] + 1;
+        snake.unshift([newPos === COLS - 1 ? 0 : newPos, tail[1]]);
+      }
+      if (direction === "UP") {
+        const newPos = tail[1] + 1;
+        snake.unshift([newPos === ROWS - 1 ? 0 : newPos, tail[0]]);
+      }
+      if (direction === "DOWN") {
+        const newPos = tail[1] - 1;
+        snake.unshift([newPos === -1 ? ROWS - 1 : newPos, tail[0]]);
+      }
+      score++;
+      updateScore();
+      food = undefined;
+    }
+
+    function updateScore() {
+      scoreBoard.innerText = `Score: ${score}`;
+    }
+
+    function updateSnake() {
+      const head = snake[snake.length - 1];
+      if (direction === "RIGHT") {
+        const newPos = head[0] + 1;
+        snake.push([newPos === COLS ? 0 : newPos, head[1]]);
+      }
+      if (direction === "LEFT") {
+        const newPos = head[0] - 1;
+        snake.push([newPos === -1 ? COLS - 1 : newPos, head[1]]);
+      }
+      if (direction === "UP") {
+        const newPos = head[1] - 1;
+        snake.push([head[0], newPos === -1 ? ROWS - 1 : newPos]);
+      }
+      if (direction === "DOWN") {
+        const newPos = head[1] + 1;
+        snake.push([head[0], newPos === ROWS ? 0 : newPos]);
+      }
+      snake.shift();
+    }
+
+    function updateFood() {
+      let x = Math.floor(Math.random() * COLS);
+      let y = Math.floor(Math.random() * ROWS);
+
+      if (!containsSnake(x, y, snake)) {
+        food = { x, y };
+      }
+    }
+
+    function containsSnake(x1, y1, snake) {
+      return ~snake.findIndex(([x2, y2]) => x1 === x2 && y1 === y2);
+    }
+
+    function containsFood(x, y) {
+      return food && food.x === x && food.y === y;
+    }
+
+    function initialiseCanvas() {
+      updateScore();
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          const pixel = document.createElement("div");
+          pixel.classList.add("pixel");
+          pixel.style.top = `${row * SIZE}px`;
+          pixel.style.left = `${col * SIZE}px`;
+          canvas.appendChild(pixel);
+        }
+      }
+      snake = [[COLS / 2, ROWS / 2]];
+    }
+
+    function resetCanvas() {
+      canvas.innerHTML = "";
+    }
+
+    function subscribeToEvents() {
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowUp" && direction !== "DOWN") {
+          direction = "UP";
+        }
+        if (e.key === "ArrowDown" && direction !== "UP") {
+          direction = "DOWN";
+        }
+        if (e.key === "ArrowLeft" && direction !== "RIGHT") {
+          direction = "LEFT";
+        }
+        if (e.key === "ArrowRight" && direction !== "LEFT") {
+          direction = "RIGHT";
+        }
+      });
+    }
+  </script>
+</body>
