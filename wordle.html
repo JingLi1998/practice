@@ -1,0 +1,227 @@
+<head>
+  <style>
+    body {
+      height: 100vh;
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+      display: grid;
+      place-items: center;
+      background: rgba(0, 0, 0, 0.8);
+    }
+
+    #game {
+      display: grid;
+      grid-template-columns: repeat(5, auto);
+      gap: 1rem;
+      width: fit-content;
+    }
+
+    .letter {
+      width: 4rem;
+      height: 4rem;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      display: grid;
+      place-items: center;
+      color: rgba(255, 255, 255, 0.8);
+      text-transform: uppercase;
+      font-size: 2rem;
+      font-weight: 600;
+    }
+
+    #overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      color: white;
+      font-size: 4rem;
+      font-weight: 600;
+      place-items: center;
+    }
+
+    #overlay.show {
+      display: grid;
+      background: rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="overlay"></div>
+  <script type="module">
+    import { words } from "./wordle-generated.js";
+
+    // constants
+    const wordLength = 5;
+    const attempts = 6;
+
+    const startDate = new Date("2022-04-25");
+    const today = new Date();
+
+    const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    // state
+    let currentAttempt = 0;
+    let currentLetter = 0;
+    let isGameOver = false;
+
+    const game = document.getElementById("game");
+    const overlay = document.getElementById("overlay");
+    const board = new Map();
+
+    main();
+
+    function main() {
+      setEventListeners();
+      initialiseBoard();
+    }
+
+    function renderBoard() {
+      game.innerHTML = "";
+      for (const [key, value] of board.entries()) {
+        const [col, row] = fromKey(key);
+        const letter = document.createElement("div");
+        letter.classList.add("letter");
+
+        if (value?.background != null) {
+          letter.style.background = value.background;
+        }
+
+        if (value?.letter != null) {
+          letter.innerText = value.letter;
+        }
+
+        game.appendChild(letter);
+      }
+    }
+
+    function initialiseBoard() {
+      for (let row = 0; row < attempts; row++) {
+        for (let col = 0; col < wordLength; col++) {
+          const letter = document.createElement("div");
+          letter.classList.add("letter");
+          board.set(toKey(col, row), null);
+          game.appendChild(letter);
+        }
+      }
+    }
+
+    function setEventListeners() {
+      document.addEventListener("keydown", (e) => {
+        if (isGameOver) return;
+
+        switch (e.key) {
+          case "Backspace":
+            return removeLetter();
+          case "Enter":
+            return guessWord();
+          default: {
+            if (alphabet.includes(e.key)) {
+              insertLetter(e.key);
+            } else if (e.key === "Backspace") {
+              removeLetter();
+            }
+          }
+        }
+      });
+    }
+
+    function guessWord() {
+      attemptGuessSafe();
+      renderBoard();
+    }
+
+    function insertLetter(letter) {
+      incrementLetterSafe(letter);
+      renderBoard();
+    }
+
+    function removeLetter() {
+      decrementLetterSafe();
+      renderBoard();
+    }
+
+    function attemptGuessSafe() {
+      if (currentLetter !== wordLength) return;
+      const word = getWord().split("");
+      const guess = [];
+      for (let i = 0; i < wordLength; i++) {
+        guess.push(board.get(toKey(i, currentAttempt)).letter);
+      }
+      for (let i = 0; i < wordLength; i++) {
+        if (guess[i] === word[i]) {
+          board.set(toKey(i, currentAttempt), {
+            letter: guess[i],
+            background: "green",
+          });
+          word[i] = undefined;
+        }
+      }
+      for (let i = 0; i < wordLength; i++) {
+        if (guess[i] != null && word.includes(guess[i])) {
+          board.set(toKey(i, currentAttempt), {
+            letter: guess[i],
+            background: "#a58301",
+          });
+          word[word.indexOf(guess[i])] = undefined;
+        }
+      }
+      checkWinCondition(guess.join(""));
+      checkLoseCondition();
+      startNewGuess();
+    }
+
+    function checkWinCondition(guess) {
+      if (guess === getWord()) {
+        isGameOver = true;
+        overlay.innerText = "You have won!";
+        overlay.classList.toggle("show");
+      }
+    }
+
+    function checkLoseCondition() {
+      if (currentAttempt === attempts - 1) {
+        isGameOver = true;
+        overlay.innerText = "You have lost loser!";
+        overlay.classList.toggle("show");
+      }
+    }
+
+    function startNewGuess() {
+      currentAttempt++;
+      currentLetter = 0;
+    }
+
+    function incrementLetterSafe(letter) {
+      if (currentLetter === wordLength) return;
+      board.set(toKey(currentLetter, currentAttempt), { letter });
+      currentLetter++;
+    }
+
+    function decrementLetterSafe() {
+      if (currentLetter === 0) return;
+      currentLetter--;
+      board.set(toKey(currentLetter, currentAttempt), null);
+    }
+
+    function toKey(letter, position) {
+      return `${letter}_${position}`;
+    }
+
+    function fromKey(key) {
+      return key.split("_");
+    }
+
+    function getWord() {
+      return words[daysBetween()];
+    }
+
+    function daysBetween() {
+      return Math.floor(
+        (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+    }
+  </script>
+</body>

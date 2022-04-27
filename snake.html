@@ -244,6 +244,9 @@
     }
 
     function subscribeToEvents() {
+      document.addEventListener("touchmove", (e) => {
+        console.log(e);
+      });
       document.addEventListener("keydown", (e) => {
         if (e.key === "ArrowUp" && direction !== "DOWN") {
           direction = "UP";
